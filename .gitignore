@@ -6,4 +6,5 @@ prisma/*.db-journal
 *.log
 *.tsbuildinfo
 backups/*.db
+tmp/
 .DS_Store

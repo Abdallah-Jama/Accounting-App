@@ -8,7 +8,7 @@ const smokeName = "__smoke_test__";
 async function activeBalance(companyId) {
   const [received, invoiced] = await Promise.all([
     db.moneyReceipt.aggregate({ where: { companyId }, _sum: { amount: true } }),
-    db.invoice.aggregate({ where: { companyId, status: { not: "CANCELLED" } }, _sum: { grandTotal: true } }),
+    db.invoice.aggregate({ where: { companyId, status: "FINAL" }, _sum: { grandTotal: true } }),
   ]);
   return (received._sum.amount ?? 0) - (invoiced._sum.grandTotal ?? 0);
 }

@@ -51,6 +51,8 @@ Prisma resolves this path relative to `prisma/schema.prisma`, so the database is
 ```powershell
 npm.cmd run typecheck   # TypeScript validation
 npm.cmd run test:accounting # Balance, cancellation, and backup smoke checks
+npm.cmd run test:statement  # Statement ledger, CSV, and PDF smoke checks
+npm.cmd run test:analytics  # Official totals, exclusions, and ranking checks
 npm.cmd run db:studio   # Local database browser
 npm.cmd run db:push     # Apply schema changes locally
 ```
@@ -63,3 +65,5 @@ npm.cmd run db:push     # Apply schema changes locally
 - Invoices: editable drafts, immutable final invoices, cancellation history, and printable invoice/PDF view
 - Analytics: received and invoiced comparison
 - Settings & Data: real local backups and four CSV exports
+- Company statements: date/type/status/reference filters, running balances, and filtered PDF/CSV exports
+- Business dashboard and analytics: period controls, company balance reports, item/company rankings, and monthly official totals

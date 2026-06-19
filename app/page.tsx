@@ -1,37 +1,18 @@
-import { ArrowDownLeft, ArrowUpRight, Building2, Plus } from "lucide-react";
-import Link from "next/link";
-import { getCompanyBalances } from "@/lib/accounting";
-import { db } from "@/lib/db";
+import { AnalyticsRangeFilter } from "@/components/analytics-range-filter";
+import { Card, EmptyState, PageHeader, primaryButton, secondaryButton } from "@/components/ui";
+import { getBusinessAnalytics, normalizeAnalyticsFilters, analyticsQueryString } from "@/lib/analytics";
 import { formatDate } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
-import { Card, EmptyState, PageHeader, primaryButton } from "@/components/ui";
+import { ArrowDownLeft, ArrowUpRight, Boxes, Building2, PackageCheck, Plus, Truck } from "lucide-react";
+import Link from "next/link";
 
-export const dynamic = "force-dynamic";
-
-export default async function Dashboard() {
-  const [companies, recentReceipts, recentInvoices] = await Promise.all([
-    getCompanyBalances(),
-    db.moneyReceipt.findMany({ include: { company: true }, orderBy: { receivedAt: "desc" }, take: 5 }),
-    db.invoice.findMany({ where: { status: { not: "CANCELLED" } }, include: { company: true }, orderBy: { invoiceDate: "desc" }, take: 5 }),
-  ]);
-  const received = companies.reduce((s, c) => s + c.totalReceived, 0);
-  const invoiced = companies.reduce((s, c) => s + c.totalInvoiced, 0);
-  const balance = received - invoiced;
-  return <>
-    <PageHeader title="Dashboard" description="A clear view of money received, invoiced, and still in hand." action={<Link className={primaryButton} href="/invoices/new"><Plus size={17} />New invoice</Link>} />
-    <div className="grid gap-4 md:grid-cols-3">
-      <Metric label="Total received" value={formatMoney(received)} icon={<ArrowDownLeft />} tone="green" />
-      <Metric label="Total invoiced" value={formatMoney(invoiced)} icon={<ArrowUpRight />} tone="slate" />
-      <Metric label="Money in hand" value={formatMoney(balance)} icon={<Building2 />} tone={balance < 0 ? "red" : "green"} />
-    </div>
-    <div className="mt-7 grid gap-6 xl:grid-cols-[1.25fr_.75fr]">
-      <Card><div className="border-b px-5 py-4"><h2 className="font-semibold">Company balances</h2></div>{companies.length ? <div className="divide-y">{companies.map(c => <Link href={`/companies/${c.id}`} key={c.id} className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50"><div><div className="font-medium">{c.name}</div><div className="mt-1 text-xs text-slate-500">Received {formatMoney(c.totalReceived)} · Invoiced {formatMoney(c.totalInvoiced)}</div></div><span className={`font-semibold ${c.balance < 0 ? "text-red-600" : "text-brand-700"}`}>{formatMoney(c.balance)}</span></Link>)}</div> : <EmptyState>Add a company to begin tracking its balance.</EmptyState>}</Card>
-      <Card><div className="border-b px-5 py-4"><h2 className="font-semibold">Recent activity</h2></div><div className="divide-y">{[...recentReceipts.map(r => ({ id:`r${r.id}`, date:r.receivedAt, name:r.company.name, type:"Received", amount:r.amount, href:"/received-money", positive:true })), ...recentInvoices.map(i => ({ id:`i${i.id}`, date:i.invoiceDate, name:i.company.name, type:i.invoiceNumber, amount:i.grandTotal, href:`/invoices/${i.id}`, positive:false }))].sort((a,b)=>b.date.getTime()-a.date.getTime()).slice(0,7).map(row => <Link href={row.href} key={row.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50"><div><div className="text-sm font-medium">{row.name}</div><div className="text-xs text-slate-500">{row.type} · {formatDate(row.date)}</div></div><span className={`text-sm font-semibold ${row.positive ? "text-brand-700" : "text-slate-700"}`}>{row.positive ? "+" : "−"}{formatMoney(row.amount)}</span></Link>)}</div>{!recentReceipts.length && !recentInvoices.length && <EmptyState>No activity yet.</EmptyState>}</Card>
-    </div>
-  </>;
-}
-
-function Metric({ label, value, icon, tone }: { label:string; value:string; icon:React.ReactNode; tone:"green"|"slate"|"red" }) {
-  const colors = tone === "green" ? "bg-brand-50 text-brand-700" : tone === "red" ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-600";
-  return <Card className="p-5"><div className={`mb-5 grid h-10 w-10 place-items-center rounded-xl ${colors}`}>{icon}</div><p className="text-sm text-slate-500">{label}</p><p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p></Card>;
-}
+export const dynamic="force-dynamic";
+export default async function Dashboard({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}){const query=await searchParams;const filters=normalizeAnalyticsFilters(query);const analytics=await getBusinessAnalytics(filters);const m=analytics.metrics;return <>
+  <PageHeader title="Business Control Dashboard" description={`Official accounting overview for ${filters.label}.`} action={<div className="flex gap-2"><Link className={secondaryButton} href={`/analytics?${analyticsQueryString(filters)}`}>Detailed analytics</Link><Link className={primaryButton} href="/invoices/new"><Plus size={17}/>New invoice</Link></div>}/>
+  <AnalyticsRangeFilter filters={filters}/>
+  <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5"><Metric label="Money in hand" hint={`As of ${filters.to}`} value={formatMoney(m.moneyInHand)} icon={<Building2/>} tone={m.moneyInHand<0?"red":"green"}/><Metric label="Total received" hint="Payments in period" value={formatMoney(m.totalReceived)} icon={<ArrowDownLeft/>} tone="green"/><Metric label="Final invoiced" hint="Final invoices in period" value={formatMoney(m.totalFinalInvoiced)} icon={<ArrowUpRight/>}/><Metric label="Commission" hint="Final invoices only" value={formatMoney(m.totalCommission)} icon={<Boxes/>}/><Metric label="Packing" hint="Final invoices only" value={formatMoney(m.totalPacking)} icon={<PackageCheck/>}/><Metric label="Transportation" hint="Final invoices only" value={formatMoney(m.totalTransportation)} icon={<Truck/>}/><Metric label="Companies" hint="All company accounts" value={String(m.companyCount)}/><Metric label="Negative balance" hint="Need funding or review" value={String(m.negativeCount)} tone={m.negativeCount?"red":"slate"}/><Metric label="Zero balance" hint="No money currently in hand" value={String(m.zeroCount)}/><Metric label="Positive balance" hint="Money available" value={String(m.positiveCount)} tone="green"/></div>
+  <div className="mt-7 grid gap-6 xl:grid-cols-[1.25fr_.75fr]"><Card><div className="flex items-center justify-between border-b px-5 py-4"><div><h2 className="font-semibold">Money in hand by company</h2><p className="mt-1 text-xs text-slate-500">Payments less Final invoices, as of {filters.to}</p></div></div>{analytics.companyBalances.length?<div className="divide-y">{[...analytics.companyBalances].sort((a,b)=>b.balance-a.balance).slice(0,10).map(c=><Link href={`/companies/${c.id}`} key={c.id} className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50"><div><div className="font-medium">{c.name}</div><div className="mt-1 text-xs text-slate-500">Received {formatMoney(c.totalReceived)} · Final invoiced {formatMoney(c.totalInvoiced)}</div></div><span className={`font-semibold ${c.balance<0?"text-red-600":c.balance>0?"text-brand-700":"text-slate-500"}`}>{formatMoney(c.balance)}</span></Link>)}</div>:<EmptyState>No companies yet.</EmptyState>}</Card>
+  <Card><div className="border-b px-5 py-4"><h2 className="font-semibold">Recent official activity</h2><p className="mt-1 text-xs text-slate-500">Payments and Final invoices in period</p></div>{analytics.recentActivity.length?<div className="divide-y">{analytics.recentActivity.map(row=><Link href={row.href} key={row.key} className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-slate-50"><div><div className="text-sm font-medium">{row.company}</div><div className="text-xs text-slate-500">{row.reference} · {formatDate(row.date)}</div></div><span className={`whitespace-nowrap text-sm font-semibold ${row.kind==="Received"?"text-brand-700":"text-slate-700"}`}>{row.kind==="Received"?"+":"-"}{formatMoney(row.amount)}</span></Link>)}</div>:<EmptyState>No official activity in this period.</EmptyState>}</Card></div>
+  <div className="mt-4 text-xs text-slate-500">Operational context: {m.draftCount} Draft and {m.cancelledCount} Cancelled invoices in this period. Neither affects official totals.</div>
+  </>}
+function Metric({label,hint,value,icon,tone="slate"}:{label:string;hint:string;value:string;icon?:React.ReactNode;tone?:"green"|"red"|"slate"}){const color=tone==="green"?"text-brand-700":tone==="red"?"text-red-600":"text-ink";return <Card className="p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-slate-500">{label}</p><p className={`mt-2 text-xl font-semibold tracking-tight ${color}`}>{value}</p></div>{icon&&<span className={`rounded-xl p-2 ${tone==="green"?"bg-brand-50 text-brand-700":tone==="red"?"bg-red-50 text-red-600":"bg-slate-100 text-slate-500"}`}>{icon}</span>}</div><p className="mt-3 text-[11px] text-slate-400">{hint}</p></Card>}

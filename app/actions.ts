@@ -143,3 +143,10 @@ export async function createBackup() {
     redirect(`/settings?backup=error&message=${encodeURIComponent(message)}`);
   }
 }
+
+export async function updateBusinessSettings(formData: FormData) {
+  const businessName = requiredText(formData, "businessName").slice(0, 120);
+  await db.appSetting.upsert({ where:{key:"businessName"},create:{key:"businessName",value:businessName},update:{value:businessName} });
+  revalidatePath("/settings");
+  redirect("/settings?saved=business");
+}

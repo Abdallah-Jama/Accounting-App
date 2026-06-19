@@ -4,7 +4,7 @@ export async function getCompanyBalances() {
   const companies = await db.company.findMany({
     include: {
       receipts: { select: { amount: true } },
-      invoices: { where: { status: { not: "CANCELLED" } }, select: { grandTotal: true } },
+      invoices: { where: { status: "FINAL" }, select: { grandTotal: true } },
     },
     orderBy: { name: "asc" },
   });
@@ -19,7 +19,7 @@ export async function getCompanyBalances() {
 export async function getCompanyBalance(companyId: number) {
   const [received, invoiced] = await Promise.all([
     db.moneyReceipt.aggregate({ where: { companyId }, _sum: { amount: true } }),
-    db.invoice.aggregate({ where: { companyId, status: { not: "CANCELLED" } }, _sum: { grandTotal: true } }),
+    db.invoice.aggregate({ where: { companyId, status: "FINAL" }, _sum: { grandTotal: true } }),
   ]);
   const totalReceived = received._sum.amount ?? 0;
   const totalInvoiced = invoiced._sum.grandTotal ?? 0;

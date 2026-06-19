@@ -8,6 +8,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test:accounting": "node scripts/smoke.cjs",
+    "test:statement": "tsx scripts/statement-smoke.ts",
+    "test:analytics": "tsx scripts/analytics-smoke.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio"
@@ -16,6 +18,7 @@
     "@prisma/client": "6.19.3",
     "lucide-react": "^0.468.0",
     "next": "16.2.9",
+    "pdf-lib": "^1.17.1",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "zod": "^3.24.1"
@@ -28,6 +31,7 @@
     "postcss": "8.5.15",
     "prisma": "6.19.3",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.22.4",
     "typescript": "^5.7.2"
   },
   "overrides": {
