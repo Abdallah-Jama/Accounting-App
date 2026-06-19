@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Building2, FilePlus2, Files, LayoutDashboard, Menu, ReceiptText, Settings, WalletCards, X } from "lucide-react";
+import { BarChart3, Building2, FilePlus2, Files, LayoutDashboard, Menu, ReceiptText, ScrollText, Settings, WalletCards, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -12,6 +12,7 @@ const links = [
   { href: "/invoices", label: "Invoices", icon: Files },
   { href: "/invoices/new", label: "Create Invoice", icon: FilePlus2 },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/audit-log", label: "Audit Log", icon: ScrollText },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

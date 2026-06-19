@@ -1,0 +1,6 @@
+"use client";
+import { loginAction, setupPasswordAction, type AuthFormState } from "@/app/auth-actions";
+import { primaryButton } from "@/components/ui";
+import { useActionState } from "react";
+
+export function AuthForm({mode}:{mode:"setup"|"login"}){const action=mode==="setup"?setupPasswordAction:loginAction;const [state,formAction,pending]=useActionState<AuthFormState,FormData>(action,{});return <form action={formAction} className="mt-7 space-y-4"><div><label htmlFor="password">{mode==="setup"?"Create password":"Password"}</label><input id="password" name="password" type="password" autoComplete={mode==="setup"?"new-password":"current-password"} minLength={mode==="setup"?10:undefined} required autoFocus/></div>{mode==="setup"&&<div><label htmlFor="confirmation">Confirm password</label><input id="confirmation" name="confirmation" type="password" autoComplete="new-password" minLength={10} required/></div>}{state.error&&<div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{state.error}</div>}<button disabled={pending} className={`${primaryButton} w-full`}>{pending?"Please wait…":mode==="setup"?"Protect this app":"Unlock app"}</button></form>}

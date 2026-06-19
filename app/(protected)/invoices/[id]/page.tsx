@@ -25,7 +25,7 @@ export default async function InvoicePage({ params }: { params: Promise<{id:stri
     </Card>
     <div className="no-print mx-auto mt-5 flex max-w-4xl flex-wrap gap-3">
       {invoice.status === "DRAFT" && <><form action={finalizeInvoice}><input type="hidden" name="id" value={invoice.id}/><ConfirmButton className={primaryButton} message="Finalize this invoice? Final invoices cannot be edited.">Finalize invoice</ConfirmButton></form><form action={deleteInvoice}><input type="hidden" name="id" value={invoice.id}/><ConfirmButton className={dangerButton} message="Delete this draft invoice?">Delete draft</ConfirmButton></form></>}
-      {invoice.status !== "CANCELLED" && <form action={cancelInvoice}><input type="hidden" name="id" value={invoice.id}/><ConfirmButton className={dangerButton} message="Cancel this invoice? It will remain in history and no longer affect the company balance.">Cancel invoice</ConfirmButton></form>}
+      {invoice.status !== "CANCELLED" && <form action={cancelInvoice}><input type="hidden" name="id" value={invoice.id}/><ConfirmButton className={dangerButton} message={invoice.status==="FINAL"?"Cancel this Final invoice? It will remain in history, be clearly marked Cancelled, and stop affecting official balances.":"Cancel this Draft invoice? It will remain in history and cannot be edited afterward."}>Cancel invoice</ConfirmButton></form>}
     </div>
   </>;
 }

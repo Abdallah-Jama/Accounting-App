@@ -81,3 +81,38 @@ model AppSetting {
   value     String
   updatedAt DateTime @updatedAt
 }
+
+model LocalAuth {
+  id                    Int           @id @default(1)
+  passwordHash          String
+  sessionTimeoutMinutes Int           @default(60)
+  failedLoginAttempts   Int           @default(0)
+  lockedUntil           DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  sessions              AuthSession[]
+}
+
+model AuthSession {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  authId     Int
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  auth       LocalAuth @relation(fields: [authId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+  action          String
+  entityType      String
+  entityReference String?
+  details         String?
+
+  @@index([createdAt])
+  @@index([action])
+  @@index([entityType])
+}

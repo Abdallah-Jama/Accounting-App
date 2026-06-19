@@ -7,6 +7,8 @@ import { parseMoneyToMinor } from "@/lib/money";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { requireSession } from "@/lib/auth";
+import { writeAuditLog } from "@/lib/audit";
 
 const requiredText = (formData: FormData, key: string) => {
   const value = String(formData.get(key) ?? "").trim();
@@ -21,39 +23,49 @@ const positiveId = (value: FormDataEntryValue | null) => {
 };
 
 export async function createCompany(formData: FormData) {
-  await db.company.create({ data: { name: requiredText(formData, "name"), email: optionalText(formData, "email"), phone: optionalText(formData, "phone"), address: optionalText(formData, "address"), notes: optionalText(formData, "notes") } });
+  await requireSession();
+  const company=await db.company.create({ data: { name: requiredText(formData, "name"), email: optionalText(formData, "email"), phone: optionalText(formData, "phone"), address: optionalText(formData, "address"), notes: optionalText(formData, "notes") } });
+  await writeAuditLog({action:"COMPANY_CREATED",entityType:"Company",entityReference:company.id,details:{name:company.name}});
   revalidatePath("/companies");
   redirect("/companies");
 }
 
 export async function updateCompany(formData: FormData) {
+  await requireSession();
   const id = positiveId(formData.get("id"));
-  await db.company.update({ where: { id }, data: { name: requiredText(formData, "name"), email: optionalText(formData, "email"), phone: optionalText(formData, "phone"), address: optionalText(formData, "address"), notes: optionalText(formData, "notes") } });
+  const company=await db.company.update({ where: { id }, data: { name: requiredText(formData, "name"), email: optionalText(formData, "email"), phone: optionalText(formData, "phone"), address: optionalText(formData, "address"), notes: optionalText(formData, "notes") } });
+  await writeAuditLog({action:"COMPANY_UPDATED",entityType:"Company",entityReference:id,details:{name:company.name}});
   revalidatePath("/"); revalidatePath("/companies"); revalidatePath(`/companies/${id}`);
   redirect(`/companies/${id}`);
 }
 
 export async function deleteCompany(formData: FormData) {
+  await requireSession();
   const id = positiveId(formData.get("id"));
   const invoices = await db.invoice.count({ where: { companyId: id } });
   if (invoices) throw new Error("A company with invoices cannot be deleted.");
-  await db.company.delete({ where: { id } });
+  const company=await db.company.delete({ where: { id } });
+  await writeAuditLog({action:"COMPANY_DELETED",entityType:"Company",entityReference:id,details:{name:company.name}});
   revalidatePath("/"); revalidatePath("/companies");
   redirect("/companies");
 }
 
 export async function createReceipt(formData: FormData) {
+  await requireSession();
   const companyId = positiveId(formData.get("companyId"));
   const amount = parseMoneyToMinor(formData.get("amount"));
   if (amount <= 0) throw new Error("Amount must be greater than zero.");
-  await db.moneyReceipt.create({ data: { companyId, amount, receivedAt: parseLocalDate(formData.get("receivedAt")), reference: optionalText(formData, "reference"), notes: optionalText(formData, "notes") } });
+  const receipt=await db.moneyReceipt.create({ data: { companyId, amount, receivedAt: parseLocalDate(formData.get("receivedAt")), reference: optionalText(formData, "reference"), notes: optionalText(formData, "notes") } });
+  await writeAuditLog({action:"PAYMENT_CREATED",entityType:"ReceivedPayment",entityReference:receipt.reference||receipt.id,details:{companyId,amountMinor:amount,date:receipt.receivedAt.toISOString().slice(0,10)}});
   revalidatePath("/"); revalidatePath("/received-money"); revalidatePath(`/companies/${companyId}`);
   redirect("/received-money");
 }
 
 export async function deleteReceipt(formData: FormData) {
+  await requireSession();
   const id = positiveId(formData.get("id"));
   const receipt = await db.moneyReceipt.delete({ where: { id } });
+  await writeAuditLog({action:"PAYMENT_DELETED",entityType:"ReceivedPayment",entityReference:receipt.reference||receipt.id,details:{companyId:receipt.companyId,amountMinor:receipt.amount}});
   revalidatePath("/"); revalidatePath("/received-money"); revalidatePath(`/companies/${receipt.companyId}`);
 }
 
@@ -81,60 +93,72 @@ function revalidateInvoiceData(companyId: number, invoiceId?: number) {
 }
 
 export async function createInvoice(formData: FormData) {
+  await requireSession();
   const { items, ...data } = invoicePayload(formData);
   const invoice = await db.invoice.create({ data: {
     ...data,
     items: { create: items.map((item, sortOrder) => ({ ...item, lineTotal: item.quantity * item.unitPrice, sortOrder })) },
   } });
+  await writeAuditLog({action:"INVOICE_CREATED",entityType:"Invoice",entityReference:invoice.invoiceNumber,details:{id:invoice.id,companyId:invoice.companyId,status:invoice.status,grandTotalMinor:invoice.grandTotal}});
   revalidateInvoiceData(invoice.companyId, invoice.id);
   redirect(`/invoices/${invoice.id}`);
 }
 
 export async function updateInvoice(formData: FormData) {
+  await requireSession();
   const id = positiveId(formData.get("id"));
   const { items, ...data } = invoicePayload(formData);
-  const previous = await db.invoice.findUnique({ where: { id }, select: { status: true, companyId: true } });
+  const previous = await db.invoice.findUnique({ where: { id }, select: { status: true, companyId: true,invoiceNumber:true } });
   if (!previous) throw new Error("Invoice not found.");
   if (previous.status !== "DRAFT") throw new Error("Only draft invoices can be edited.");
   const invoice = await db.invoice.update({ where: { id, status: "DRAFT" }, data: {
     ...data,
     items: { deleteMany: {}, create: items.map((item, sortOrder) => ({ ...item, lineTotal: item.quantity * item.unitPrice, sortOrder })) },
   } });
+  await writeAuditLog({action:"INVOICE_UPDATED",entityType:"Invoice",entityReference:invoice.invoiceNumber,details:{id,status:invoice.status,grandTotalMinor:invoice.grandTotal}});
   revalidateInvoiceData(previous.companyId, id);
   if (previous.companyId !== invoice.companyId) revalidatePath(`/companies/${invoice.companyId}`);
   redirect(`/invoices/${id}`);
 }
 
 export async function finalizeInvoice(formData: FormData) {
+  await requireSession();
   const id = positiveId(formData.get("id"));
   const result = await db.invoice.updateMany({ where: { id, status: "DRAFT" }, data: { status: "FINAL" } });
   if (!result.count) throw new Error("Only a draft invoice can be finalized.");
-  const invoice = await db.invoice.findUniqueOrThrow({ where: { id }, select: { companyId: true } });
+  const invoice = await db.invoice.findUniqueOrThrow({ where: { id }, select: { companyId: true,invoiceNumber:true,grandTotal:true } });
+  await writeAuditLog({action:"INVOICE_FINALIZED",entityType:"Invoice",entityReference:invoice.invoiceNumber,details:{id,grandTotalMinor:invoice.grandTotal}});
   revalidateInvoiceData(invoice.companyId, id);
 }
 
 export async function cancelInvoice(formData: FormData) {
+  await requireSession();
   const id = positiveId(formData.get("id"));
-  const invoice = await db.invoice.findUnique({ where: { id }, select: { companyId: true, status: true } });
+  const invoice = await db.invoice.findUnique({ where: { id }, select: { companyId: true, status: true,invoiceNumber:true,grandTotal:true } });
   if (!invoice) throw new Error("Invoice not found.");
   if (invoice.status === "CANCELLED") throw new Error("Invoice is already cancelled.");
   await db.invoice.update({ where: { id }, data: { status: "CANCELLED" } });
+  await writeAuditLog({action:"INVOICE_CANCELLED",entityType:"Invoice",entityReference:invoice.invoiceNumber,details:{id,previousStatus:invoice.status,grandTotalMinor:invoice.grandTotal}});
   revalidateInvoiceData(invoice.companyId, id);
 }
 
 export async function deleteInvoice(formData: FormData) {
+  await requireSession();
   const id = positiveId(formData.get("id"));
-  const existing = await db.invoice.findUnique({ where: { id }, select: { status: true } });
+  const existing = await db.invoice.findUnique({ where: { id }, select: { status: true,invoiceNumber:true } });
   if (!existing) throw new Error("Invoice not found.");
   if (existing.status !== "DRAFT") throw new Error("Only draft invoices can be deleted. Final and cancelled invoices remain in history.");
   const invoice = await db.invoice.delete({ where: { id } });
+  await writeAuditLog({action:"INVOICE_DELETED",entityType:"Invoice",entityReference:existing.invoiceNumber,details:{id,companyId:invoice.companyId,status:existing.status}});
   revalidateInvoiceData(invoice.companyId);
   redirect("/invoices");
 }
 
 export async function createBackup() {
+  await requireSession();
   try {
     const backup = await createDatabaseBackup();
+    await writeAuditLog({action:"BACKUP_CREATED",entityType:"Backup",entityReference:backup.filename,details:{sizeBytes:backup.size}});
     revalidatePath("/settings");
     redirect(`/settings?backup=success&file=${encodeURIComponent(backup.filename)}`);
   } catch (error) {
@@ -145,8 +169,10 @@ export async function createBackup() {
 }
 
 export async function updateBusinessSettings(formData: FormData) {
+  await requireSession();
   const businessName = requiredText(formData, "businessName").slice(0, 120);
   await db.appSetting.upsert({ where:{key:"businessName"},create:{key:"businessName",value:businessName},update:{value:businessName} });
+  await writeAuditLog({action:"BUSINESS_SETTINGS_UPDATED",entityType:"Settings",entityReference:"businessName",details:{businessName}});
   revalidatePath("/settings");
   redirect("/settings?saved=business");
 }

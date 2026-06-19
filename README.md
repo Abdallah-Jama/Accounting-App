@@ -25,6 +25,8 @@ npm.cmd run dev
 
 Open [http://localhost:3000](http://localhost:3000). On systems that allow PowerShell scripts, `npm` can be used instead of `npm.cmd`.
 
+On first launch, the app opens a password setup screen. The password cannot be recovered through a cloud service, so store it securely. Later visits require login until the configured local session expires or you select **Lock & logout**.
+
 ## Production mode
 
 ```powershell
@@ -53,6 +55,7 @@ npm.cmd run typecheck   # TypeScript validation
 npm.cmd run test:accounting # Balance, cancellation, and backup smoke checks
 npm.cmd run test:statement  # Statement ledger, CSV, and PDF smoke checks
 npm.cmd run test:analytics  # Official totals, exclusions, and ranking checks
+npm.cmd run test:security   # Password hashing, local sessions, and audit logging
 npm.cmd run db:studio   # Local database browser
 npm.cmd run db:push     # Apply schema changes locally
 ```
@@ -67,3 +70,4 @@ npm.cmd run db:push     # Apply schema changes locally
 - Settings & Data: real local backups and four CSV exports
 - Company statements: date/type/status/reference filters, running balances, and filtered PDF/CSV exports
 - Business dashboard and analytics: period controls, company balance reports, item/company rankings, and monthly official totals
+- Local security: first-time password setup, SQLite-backed sessions, configurable timeout, logout, password changes, and audit history

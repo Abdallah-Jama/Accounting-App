@@ -10,6 +10,7 @@
     "test:accounting": "node scripts/smoke.cjs",
     "test:statement": "tsx scripts/statement-smoke.ts",
     "test:analytics": "tsx scripts/analytics-smoke.ts",
+    "test:security": "tsx scripts/security-smoke.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio"

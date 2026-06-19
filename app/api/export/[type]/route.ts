@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import { getCurrentSession } from "@/lib/auth";
+import { writeAuditLog } from "@/lib/audit";
 
 const allowed = ["companies", "received-payments", "invoices", "invoice-items"] as const;
 type ExportType = typeof allowed[number];
@@ -17,6 +19,7 @@ function minorToMajor(value: number) { return (value / 100).toFixed(2); }
 function date(value: Date) { return value.toISOString().slice(0, 10); }
 
 export async function GET(_request: Request, { params }: { params: Promise<{type:string}> }) {
+  if(!await getCurrentSession())return new Response("Authentication required",{status:401});
   const { type: rawType } = await params;
   if (!allowed.includes(rawType as ExportType)) return new Response("Unknown export type", { status: 404 });
   const type = rawType as ExportType;
@@ -37,5 +40,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{type
   }
 
   const stamp = new Date().toISOString().replace(/[:.]/g,"-");
+  await writeAuditLog({action:"CSV_EXPORT_GENERATED",entityType:"Export",entityReference:type,details:{format:"csv"}});
   return new Response(content, { headers:{ "Content-Type":"text/csv; charset=utf-8", "Content-Disposition":`attachment; filename="${type}-${stamp}.csv"`, "Cache-Control":"no-store" } });
 }
