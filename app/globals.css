@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+* { border-color: #e2e8e3; }
+body { @apply bg-canvas text-ink antialiased; }
+input, select, textarea { @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100; }
+label { @apply mb-1.5 block text-sm font-medium text-slate-700; }
+button, a { -webkit-tap-highlight-color: transparent; }
+@media print { .no-print { display: none !important; } body { background: white; } }

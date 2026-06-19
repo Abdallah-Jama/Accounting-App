@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id        Int            @id @default(autoincrement())
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  notes     String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  receipts  MoneyReceipt[]
+  invoices  Invoice[]
+
+  @@index([name])
+}
+
+model MoneyReceipt {
+  id         Int      @id @default(autoincrement())
+  companyId  Int
+  amount     Int
+  receivedAt DateTime
+  reference  String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, receivedAt])
+}
+
+model Invoice {
+  id             Int           @id @default(autoincrement())
+  invoiceNumber  String        @unique
+  companyId      Int
+  invoiceDate    DateTime
+  subtotal       Int
+  commission     Int           @default(0)
+  packing        Int           @default(0)
+  transportation Int           @default(0)
+  grandTotal     Int
+  status         InvoiceStatus @default(FINAL)
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  company        Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  items          InvoiceItem[]
+
+  @@index([companyId, invoiceDate])
+  @@index([status])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  FINAL
+  CANCELLED
+}
+
+model InvoiceItem {
+  id        Int     @id @default(autoincrement())
+  invoiceId Int
+  itemName  String
+  quantity  Int
+  unitPrice Int
+  lineTotal Int
+  sortOrder Int     @default(0)
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId, sortOrder])
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

@@ -1,0 +1,17 @@
+import { createBackup } from "@/app/actions";
+import { Card, PageHeader, primaryButton, secondaryButton } from "@/components/ui";
+import { listDatabaseBackups } from "@/lib/backup.cjs";
+import { Database, Download, HardDrive, ShieldCheck } from "lucide-react";
+
+export const dynamic = "force-dynamic";
+
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{backup?:string;file?:string;message?:string}> }) {
+  const [query, backups] = await Promise.all([searchParams, listDatabaseBackups()]);
+  return <><PageHeader title="Settings & Data" description="Local storage, backups, and portable CSV exports."/>
+    {query.backup === "success" && <div className="mb-5 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-sm text-green-800"><strong>Backup created successfully.</strong> {query.file}</div>}
+    {query.backup === "error" && <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800"><strong>Backup failed.</strong> {query.message}</div>}
+    <div className="grid gap-5 md:grid-cols-2"><Card className="p-6"><Database className="mb-4 text-brand-600"/><h2 className="font-semibold">SQLite database</h2><p className="mt-2 text-sm leading-6 text-slate-500">All accounting records remain in <code className="rounded bg-slate-100 px-1.5 py-1 text-xs">prisma/accounting.db</code>. SQLite is the source of truth.</p></Card><Card className="p-6"><HardDrive className="mb-4 text-brand-600"/><h2 className="font-semibold">Currency & precision</h2><p className="mt-2 text-sm leading-6 text-slate-500">Amounts are displayed in AED and stored as integer fils. No floating-point values are used for accounting data.</p></Card></div>
+    <Card className="mt-5 p-6"><div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"><div><ShieldCheck className="mb-4 text-brand-600"/><h2 className="font-semibold">Database backups</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Create a timestamped, non-overwriting copy in the local <code className="rounded bg-slate-100 px-1.5 py-1 text-xs">backups</code> folder.</p></div><form action={createBackup}><button className={primaryButton}>Create Backup Now</button></form></div>{backups.length>0&&<div className="mt-6 overflow-hidden rounded-xl border"><div className="border-b bg-slate-50 px-4 py-2.5 text-xs font-semibold uppercase text-slate-500">Recent backups</div><div className="divide-y">{backups.map(file=><div key={file.filename} className="flex flex-col justify-between gap-1 px-4 py-3 text-sm sm:flex-row"><span className="font-medium">{file.filename}</span><span className="text-slate-500">{(file.size/1024).toFixed(1)} KB · {file.createdAt.toLocaleString("en-AE")}</span></div>)}</div></div>}</Card>
+    <Card className="mt-5 p-6"><Download className="mb-4 text-brand-600"/><h2 className="font-semibold">CSV exports</h2><p className="mt-2 text-sm leading-6 text-slate-500">Download local snapshots for spreadsheets or independent archiving. Money columns include both integer minor units and formatted AED values.</p><div className="mt-5 flex flex-wrap gap-3"><a className={secondaryButton} href="/api/export/companies">Companies</a><a className={secondaryButton} href="/api/export/received-payments">Received payments</a><a className={secondaryButton} href="/api/export/invoices">Invoices</a><a className={secondaryButton} href="/api/export/invoice-items">Invoice items</a></div></Card>
+  </>;
+}
